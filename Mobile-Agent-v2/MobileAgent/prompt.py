@@ -53,22 +53,32 @@ def get_action_prompt(instruction, clickable_infos, width, height, keyboard, sum
         prompt += "\n\n"
     
     prompt += "### Response requirements ###\n"
-    prompt += "Now you need to combine all of the above to perform just one action on the current page. You must choose one of the six actions below:\n"
-    prompt += "Open app (app name): If the current page is desktop, you can use this action to open the app named \"app name\" on the desktop.\n"
-    prompt += "Tap (x, y): Tap the position (x, y) in current page.\n"
-    prompt += "Swipe (x1, y1), (x2, y2): Swipe from position (x1, y1) to position (x2, y2).\n"
+    prompt += "Now you need to combine all of the above to perform just one action on the current page. "
+    prompt += "The Action field must be exactly one of the following formats and must not contain any extra words, labels, explanations, or examples:\n"
+    prompt += "Open app (app name)\n"
+    prompt += "Tap (x, y)\n"
+    prompt += "Swipe (x1, y1), (x2, y2)\n"
     if keyboard:
-        prompt += "Type (text): Type the \"text\" in the input box.\n"
+        prompt += "Type (text)\n"
     else:
-        prompt += "Unable to Type. You cannot use the action \"Type\" because the keyboard has not been activated. If you want to type, please first activate the keyboard by tapping on the input box on the screen.\n"
-    prompt += "Home: Return to home page.\n"
-    prompt += "Stop: If you think all the requirements of user\'s instruction have been completed and no further operation is required, you can choose this action to terminate the operation process."
+        prompt += "Type is not available because the keyboard has not been activated. If you need to type, first choose a Tap (x, y) action on the target input box to activate the keyboard.\n"
+    prompt += "Home\n"
+    prompt += "Stop\n\n"
+    prompt += "The following are format examples only. Do not copy their coordinates or text; replace them with the coordinates or text required by the current screenshot and task:\n"
+    prompt += "Example: Tap (540, 930)\n"
+    prompt += "Example: Swipe (540, 1200), (540, 0)\n"
+    if keyboard:
+        prompt += "Example: Type (Hugo)\n"
+        prompt += "Example: Type (+13920741751)\n"
+    prompt += "Do not output incomplete actions such as Tap, Type, or Unable to Type.\n"
+    prompt += "Do not output actions with extra text such as Tap (x, y): Tap (540, 930) or Type (text): Type \"Hugo\".\n"
+    prompt += "Use Stop only if you think all the requirements of the user's instruction have been completed and no further operation is required."
     prompt += "\n\n"
     
     prompt += "### Output format ###\n"
     prompt += "Your output consists of the following three parts:\n"
     prompt += "### Thought ###\nThink about the requirements that have been completed in previous operations and the requirements that need to be completed in the next one operation.\n"
-    prompt += "### Action ###\nYou can only choose one from the six actions above. Make sure that the coordinates or text in the \"()\".\n"
+    prompt += "### Action ###\nOutput exactly one action line using one of the allowed formats above. The coordinates or text must be inside the parentheses.\n"
     prompt += "### Operation ###\nPlease generate a brief natural language description for the operation in Action based on your Thought."
     
     return prompt
