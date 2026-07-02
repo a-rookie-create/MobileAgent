@@ -1,6 +1,8 @@
 import os
 import time
 import copy
+import importlib
+import sys
 import torch
 import shutil
 from PIL import Image, ImageDraw
@@ -19,6 +21,33 @@ from modelscope import snapshot_download, AutoModelForCausalLM, AutoTokenizer, G
 import concurrent
 
 MODELSCOPE_CACHE_DIR = "/data2/zst/biye/android-home/.cache/modelscope/hub"
+os.environ["NO_PROXY"] = "10.13.73.215,127.0.0.1,localhost,::1" + (
+    f",{os.environ['NO_PROXY']}" if os.environ.get("NO_PROXY") else ""
+)
+os.environ["no_proxy"] = "10.13.73.215,127.0.0.1,localhost,::1" + (
+    f",{os.environ['no_proxy']}" if os.environ.get("no_proxy") else ""
+)
+
+
+def install_tf_keras_legacy_layers_shim():
+    """Expose tf_keras legacy layers at the path TensorFlow 2.19 expects."""
+    try:
+        legacy_layers = importlib.import_module('tf_keras.src.legacy_tf_layers')
+    except ModuleNotFoundError:
+        return
+
+    sys.modules.setdefault('tf_keras.legacy_tf_layers', legacy_layers)
+    for module_name in (
+        'base',
+        'convolutional',
+        'core',
+        'normalization',
+        'pooling',
+        'variable_scope_shim',
+    ):
+        source_name = f'tf_keras.src.legacy_tf_layers.{module_name}'
+        target_name = f'tf_keras.legacy_tf_layers.{module_name}'
+        sys.modules.setdefault(target_name, importlib.import_module(source_name))
 
 ####################################### Edit your Setting #########################################
 # Your ADB path
@@ -34,7 +63,7 @@ API_url = "http://10.13.73.215:8000/v1/chat/completions"
 token = "dummy"
 
 # Your API model
-API_model = "qwen25vl-7b"
+API_model = "/models/qwen2.5-vl/Qwen2.5-VL-7B-Instruct"
 
 # Choose between "api" and "local". api: use the OpenAI-compatible API. local: load the old qwen-vl checkpoint in this process.
 caption_call_method = "api"
@@ -260,6 +289,7 @@ else:
 
 
 ### Load ocr and icon detection model ###
+install_tf_keras_legacy_layers_shim()
 groundingdino_dir = snapshot_download('AI-ModelScope/GroundingDINO', revision='v1.0.0', cache_dir=MODELSCOPE_CACHE_DIR)
 ocr_detection_dir = snapshot_download('damo/cv_resnet18_ocr-detection-line-level_damo', cache_dir=MODELSCOPE_CACHE_DIR)
 ocr_recognition_dir = snapshot_download('damo/cv_convnextTiny_ocr-recognition-document_damo', cache_dir=MODELSCOPE_CACHE_DIR)
