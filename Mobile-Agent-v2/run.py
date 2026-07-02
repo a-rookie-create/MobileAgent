@@ -5,7 +5,7 @@ import torch
 import shutil
 from PIL import Image, ImageDraw
 
-from MobileAgent.api import inference_chat
+from MobileAgent.api import encode_image, inference_chat
 from MobileAgent.text_localization import ocr
 from MobileAgent.icon_localization import det
 from MobileAgent.controller import get_screenshot, tap, slide, type, back, home
@@ -16,30 +16,33 @@ from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 from modelscope import snapshot_download, AutoModelForCausalLM, AutoTokenizer, GenerationConfig
 
-from dashscope import MultiModalConversation
-import dashscope
 import concurrent
+
+MODELSCOPE_CACHE_DIR = "/data2/zst/biye/android-home/.cache/modelscope/hub"
 
 ####################################### Edit your Setting #########################################
 # Your ADB path
-adb_path = ""
+adb_path = "/data2/zst/biye/android-sdk/platform-tools/adb"
 
 # Your instruction
-instruction = ""
+instruction = "Record an audio clip using Audio Recorder app and save it."
 
 # Your GPT-4o API URL
-API_url = ""
+API_url = "http://10.13.73.215:8000/v1/chat/completions"
 
 # Your GPT-4o API Token
-token = ""
+token = "dummy"
 
-# Choose between "api" and "local". api: use the qwen api. local: use the local qwen checkpoint
+# Your API model
+API_model = "qwen25vl-7b"
+
+# Choose between "api" and "local". api: use the OpenAI-compatible API. local: load the old qwen-vl checkpoint in this process.
 caption_call_method = "api"
 
-# Choose between "qwen-vl-plus" and "qwen-vl-max" if use api method. Choose between "qwen-vl-chat" and "qwen-vl-chat-int4" if use local method.
-caption_model = "qwen-vl-plus"
+# Use the same model as the main agent when calling the OpenAI-compatible local API.
+caption_model = API_model
 
-# If you choose the api caption call method, input your Qwen api here
+# Not used when the api caption method points to the local OpenAI-compatible endpoint.
 qwen_api = ""
 
 # You can add operational knowledge to help Agent operate more accurately.
@@ -90,23 +93,25 @@ def generate_local(tokenizer, model, image_file, query):
 
 
 def process_image(image, query):
-    dashscope.api_key = qwen_api
-    image = "file://" + image
-    messages = [{
-        'role': 'user',
-        'content': [
+    image_base64 = encode_image(image)
+    chat = [(
+        "user",
+        [
             {
-                'image': image
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{image_base64}"
+                }
             },
             {
-                'text': query
-            },
+                "type": "text",
+                "text": query
+            }
         ]
-    }]
-    response = MultiModalConversation.call(model=caption_model, messages=messages)
-    
+    )]
+
     try:
-        response = response['output']['choices'][0]['message']['content'][0]["text"]
+        response = inference_chat(chat, caption_model, API_url, token)
     except:
         response = "This is an icon."
     
@@ -236,11 +241,11 @@ device = "cuda"
 torch.manual_seed(1234)
 if caption_call_method == "local":
     if caption_model == "qwen-vl-chat":
-        model_dir = snapshot_download('qwen/Qwen-VL-Chat', revision='v1.1.0')
+        model_dir = snapshot_download('qwen/Qwen-VL-Chat', revision='v1.1.0', cache_dir=MODELSCOPE_CACHE_DIR)
         model = AutoModelForCausalLM.from_pretrained(model_dir, device_map=device, trust_remote_code=True).eval()
         model.generation_config = GenerationConfig.from_pretrained(model_dir, trust_remote_code=True)
     elif caption_model == "qwen-vl-chat-int4":
-        qwen_dir = snapshot_download("qwen/Qwen-VL-Chat-Int4", revision='v1.0.0')
+        qwen_dir = snapshot_download("qwen/Qwen-VL-Chat-Int4", revision='v1.0.0', cache_dir=MODELSCOPE_CACHE_DIR)
         model = AutoModelForCausalLM.from_pretrained(qwen_dir, device_map=device, trust_remote_code=True,use_safetensors=True).eval()
         model.generation_config = GenerationConfig.from_pretrained(qwen_dir, trust_remote_code=True, do_sample=False)
     else:
@@ -255,10 +260,12 @@ else:
 
 
 ### Load ocr and icon detection model ###
-groundingdino_dir = snapshot_download('AI-ModelScope/GroundingDINO', revision='v1.0.0')
+groundingdino_dir = snapshot_download('AI-ModelScope/GroundingDINO', revision='v1.0.0', cache_dir=MODELSCOPE_CACHE_DIR)
+ocr_detection_dir = snapshot_download('damo/cv_resnet18_ocr-detection-line-level_damo', cache_dir=MODELSCOPE_CACHE_DIR)
+ocr_recognition_dir = snapshot_download('damo/cv_convnextTiny_ocr-recognition-document_damo', cache_dir=MODELSCOPE_CACHE_DIR)
 groundingdino_model = pipeline('grounding-dino-task', model=groundingdino_dir)
-ocr_detection = pipeline(Tasks.ocr_detection, model='damo/cv_resnet18_ocr-detection-line-level_damo')
-ocr_recognition = pipeline(Tasks.ocr_recognition, model='damo/cv_convnextTiny_ocr-recognition-document_damo')
+ocr_detection = pipeline(Tasks.ocr_detection, model=ocr_detection_dir)
+ocr_recognition = pipeline(Tasks.ocr_recognition, model=ocr_recognition_dir)
 
 
 thought_history = []
@@ -303,7 +310,7 @@ while True:
     chat_action = init_action_chat()
     chat_action = add_response("user", prompt_action, chat_action, screenshot_file)
 
-    output_action = inference_chat(chat_action, 'gpt-4o', API_url, token)
+    output_action = inference_chat(chat_action, API_model, API_url, token)
     thought = output_action.split("### Thought ###")[-1].split("### Action ###")[0].replace("\n", " ").replace(":", "").replace("  ", " ").strip()
     summary = output_action.split("### Operation ###")[-1].replace("\n", " ").replace("  ", " ").strip()
     action = output_action.split("### Action ###")[-1].split("### Operation ###")[0].replace("\n", " ").replace("  ", " ").strip()
@@ -316,7 +323,7 @@ while True:
     if memory_switch:
         prompt_memory = get_memory_prompt(insight)
         chat_action = add_response("user", prompt_memory, chat_action)
-        output_memory = inference_chat(chat_action, 'gpt-4o', API_url, token)
+        output_memory = inference_chat(chat_action, API_model, API_url, token)
         chat_action = add_response("assistant", output_memory, chat_action)
         status = "#" * 50 + " Memory " + "#" * 50
         print(status)
@@ -390,7 +397,7 @@ while True:
         chat_reflect = init_reflect_chat()
         chat_reflect = add_response_two_image("user", prompt_reflect, chat_reflect, [last_screenshot_file, screenshot_file])
 
-        output_reflect = inference_chat(chat_reflect, 'gpt-4o', API_url, token)
+        output_reflect = inference_chat(chat_reflect, API_model, API_url, token)
         reflect = output_reflect.split("### Answer ###")[-1].replace("\n", " ").strip()
         chat_reflect = add_response("assistant", output_reflect, chat_reflect)
         status = "#" * 50 + " Reflcetion " + "#" * 50
@@ -406,7 +413,7 @@ while True:
             prompt_planning = get_process_prompt(instruction, thought_history, summary_history, action_history, completed_requirements, add_info)
             chat_planning = init_memory_chat()
             chat_planning = add_response("user", prompt_planning, chat_planning)
-            output_planning = inference_chat(chat_planning, 'gpt-4-turbo', API_url, token)
+            output_planning = inference_chat(chat_planning, API_model, API_url, token)
             chat_planning = add_response("assistant", output_planning, chat_planning)
             status = "#" * 50 + " Planning " + "#" * 50
             print(status)
@@ -431,7 +438,7 @@ while True:
         prompt_planning = get_process_prompt(instruction, thought_history, summary_history, action_history, completed_requirements, add_info)
         chat_planning = init_memory_chat()
         chat_planning = add_response("user", prompt_planning, chat_planning)
-        output_planning = inference_chat(chat_planning, 'gpt-4-turbo', API_url, token)
+        output_planning = inference_chat(chat_planning, API_model, API_url, token)
         chat_planning = add_response("assistant", output_planning, chat_planning)
         status = "#" * 50 + " Planning " + "#" * 50
         print(status)
