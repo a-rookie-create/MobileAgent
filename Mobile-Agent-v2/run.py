@@ -21,6 +21,7 @@ from modelscope import snapshot_download, AutoModelForCausalLM, AutoTokenizer, G
 import concurrent
 
 MODELSCOPE_CACHE_DIR = "/data2/zst/biye/android-home/.cache/modelscope/hub"
+CAPTION_API_MAX_WORKERS = 1
 os.environ["NO_PROXY"] = "10.13.73.215,127.0.0.1,localhost,::1" + (
     f",{os.environ['NO_PROXY']}" if os.environ.get("NO_PROXY") else ""
 )
@@ -63,7 +64,7 @@ API_url = "http://10.13.73.215:8000/v1/chat/completions"
 token = "dummy"
 
 # Your API model
-API_model = "/models/qwen2.5-vl/Qwen2.5-VL-7B-Instruct"
+API_model = "/models/mplug/UI-S1-7B"
 
 # Choose between "api" and "local". api: use the OpenAI-compatible API. local: load the old qwen-vl checkpoint in this process.
 caption_call_method = "api"
@@ -149,7 +150,7 @@ def process_image(image, query):
 
 def generate_api(images, query):
     icon_map = {}
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=CAPTION_API_MAX_WORKERS) as executor:
         futures = {executor.submit(process_image, image, query): i for i, image in enumerate(images)}
         
         for future in concurrent.futures.as_completed(futures):
