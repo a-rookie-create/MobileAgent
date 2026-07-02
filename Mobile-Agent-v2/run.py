@@ -54,7 +54,7 @@ def install_tf_keras_legacy_layers_shim():
 adb_path = "/data2/zst/biye/android-sdk/platform-tools/adb"
 
 # Your instruction
-instruction = "Record an audio clip using Audio Recorder app and save it."
+instruction = "Turn brightness to the min value."
 
 # Your GPT-4o API URL
 API_url = "http://10.13.73.215:8000/v1/chat/completions"

@@ -53,8 +53,7 @@ def get_action_prompt(instruction, clickable_infos, width, height, keyboard, sum
         prompt += "\n\n"
     
     prompt += "### Response requirements ###\n"
-    prompt += "Now you need to combine all of the above to perform just one action on the current page. "
-    prompt += "The Action field must be exactly one of the following formats and must not contain any extra words, labels, explanations, or examples:\n"
+    prompt += "Choose exactly one next action. In ### Action ###, output only one line in one of these formats:\n"
     prompt += "Open app (app name)\n"
     prompt += "Tap (x, y)\n"
     prompt += "Swipe (x1, y1), (x2, y2)\n"
@@ -62,17 +61,18 @@ def get_action_prompt(instruction, clickable_infos, width, height, keyboard, sum
         prompt += "Type (text)\n"
     else:
         prompt += "Type is not available because the keyboard has not been activated. If you need to type, first choose a Tap (x, y) action on the target input box to activate the keyboard.\n"
+    prompt += "Back\n"
     prompt += "Home\n"
     prompt += "Stop\n\n"
-    prompt += "The following are format examples only. Do not copy their coordinates or text; replace them with the coordinates or text required by the current screenshot and task:\n"
+    prompt += "Use Open app only with the app name, for example Open app (Audio Recorder). Do not tap launcher icons manually when Open app can open the app.\n"
+    prompt += "Use Stop only when the user's instruction is fully completed.\n"
+    prompt += "Examples are format examples only; replace coordinates and text with the current task values:\n"
     prompt += "Example: Tap (540, 930)\n"
     prompt += "Example: Swipe (540, 1200), (540, 0)\n"
     if keyboard:
         prompt += "Example: Type (Hugo)\n"
         prompt += "Example: Type (+13920741751)\n"
-    prompt += "Do not output incomplete actions such as Tap, Type, or Unable to Type.\n"
-    prompt += "Do not output actions with extra text such as Tap (x, y): Tap (540, 930) or Type (text): Type \"Hugo\".\n"
-    prompt += "Use Stop only if you think all the requirements of the user's instruction have been completed and no further operation is required."
+    prompt += "Do not output incomplete actions such as Tap, Type, or Unable to Type. Do not add labels or explanations inside ### Action ###."
     prompt += "\n\n"
     
     prompt += "### Output format ###\n"
