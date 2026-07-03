@@ -2,6 +2,7 @@ import abc
 import time
 import base64
 import numpy as np
+import httpx
 from PIL import Image
 from io import BytesIO
 from openai import OpenAI
@@ -80,7 +81,8 @@ class GUIOwlWrapper(LlmWrapper, MultimodalLlmWrapper):
         self.bot = OpenAI(
             api_key=api_key,
             base_url=base_url,
-            timeout=30
+            timeout=30,
+            http_client=httpx.Client(trust_env=False),
         )
 
     def convert_messages_format_to_openaiurl(self, messages):
