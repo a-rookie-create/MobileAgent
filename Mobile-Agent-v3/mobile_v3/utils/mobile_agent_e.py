@@ -70,14 +70,15 @@ class Manager(BaseAgent):
             # first time planning
             prompt += "---\n"
             prompt += "Make a high-level plan to achieve the user's request. If the request is complex, break it down into subgoals. The screenshot displays the starting state of the phone.\n"
-            prompt += "IMPORTANT: For requests that explicitly require an answer, always add 'perform the `answer` action' as the last step to the plan!\n\n"
+            prompt += "IMPORTANT: For requests that explicitly require an answer, always add 'perform the `answer` action' as the last step to the plan! Please use open_app to open an app instead of the app drawer.\n\n"
             if task_specific_note != "":
                 prompt += f"{task_specific_note}\n\n"
             
             prompt += "### Guidelines ###\n"
             prompt += "The following guidelines will help you plan this request.\n"
             prompt += "General:\n"
-            prompt += "Use search to quickly find a file or entry with a specific name, if search function is applicable.\n"
+            prompt += "1. Use the `open_app` action whenever you want to open an app, do not use the app drawer to open an app.\n"
+            prompt += "2. Use search to quickly find a file or entry with a specific name, if search function is applicable.\n"
             prompt += "Task-specific:\n"
             if info_pool.additional_knowledge_manager != "":
                 prompt += f"{info_pool.additional_knowledge_manager}\n\n"
@@ -110,7 +111,8 @@ class Manager(BaseAgent):
             prompt += "### Guidelines ###\n"
             prompt += "The following guidelines will help you plan this request.\n"
             prompt += "General:\n"
-            prompt += "Use search to quickly find a file or entry with a specific name, if search function is applicable.\n"
+            prompt += "1. Use the `open_app` action whenever you want to open an app, do not use the app drawer to open an app.\n"
+            prompt += "2. Use search to quickly find a file or entry with a specific name, if search function is applicable.\n"
             prompt += "Task-specific:\n"
             if info_pool.additional_knowledge_manager != "":
                 prompt += f"{info_pool.additional_knowledge_manager}\n\n"
@@ -179,10 +181,21 @@ ATOMIC_ACTION_SIGNITURES_noxml = {
     SWIPE: {
         "arguments": ["coordinate", "coordinate2"],
         "description": lambda info: "Scroll from the position with coordinate to the position with coordinate2. Please make sure the start and end points of your swipe are within the swipeable area and away from the keyboard (y1 < 1400). Usage Example: {\"action\": \"swipe\", \"coordinate\": [x1, y1], \"coordinate2\": [x2, y2]}"
+    },
+    OPEN: {
+        "arguments": ["text"],
+        "description": lambda info: "Open an app. Usage example: {\"action\": \"open_app\", \"text\": \"the name of app\"}"
     }
 }
 
-INPUT_KNOW = "If you've activated an input field, you'll see \"ADB Keyboard {on}\" at the bottom of the screen. This phone doesn't display a soft keyboard. So, if you see \"ADB Keyboard {on}\" at the bottom of the screen, it means you can type. Otherwise, you'll need to tap the correct input field to activate it."
+INPUT_KNOW = (
+    "Use the `open_app` action whenever you need to open an app; do not use the "
+    "app drawer to find or launch apps. If you've activated an input field, "
+    "you'll see \"ADB Keyboard {on}\" at the bottom of the screen. This phone "
+    "doesn't display a soft keyboard. So, if you see \"ADB Keyboard {on}\" at "
+    "the bottom of the screen, it means you can type. Otherwise, you'll need "
+    "to tap the correct input field to activate it."
+)
 
 class Executor(BaseAgent):
 
@@ -259,7 +272,7 @@ class Executor(BaseAgent):
 
         prompt += "### Action ###\n"
         prompt += "Choose only one action or shortcut from the options provided.\n"
-        prompt += "You must provide your decision using a valid JSON format specifying the `action` and the arguments of the action. For example, if you want to type some text, you should write {\"action\":\"type\", \"text\": \"the text you want to type\"}.\n\n"
+        prompt += "You must provide your decision using a valid JSON format specifying the `action` and the arguments of the action. For example, if you want to open an App, you should write {\"action\":\"open_app\", \"text\": \"app name\"}.\n\n"
         
         prompt += "### Description ###\n"
         prompt += "A brief description of the chosen action. Do not describe expected outcome.\n"

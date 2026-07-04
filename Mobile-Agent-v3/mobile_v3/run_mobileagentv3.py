@@ -203,6 +203,8 @@ def run_instruction(adb_path, hdc_path, api_key, base_url, model, instruction, a
             
             if action_object['action'] == "click":
                 controller.tap(action_object['coordinate'][0], action_object['coordinate'][1])
+            elif action_object['action'] == "open_app":
+                controller.open_app(action_object['text'])
             elif action_object['action'] == "swipe":
                 controller.slide(action_object['coordinate'][0], action_object['coordinate'][1], action_object['coordinate2'][0], action_object['coordinate2'][1])
             elif action_object['action'] == "type":
