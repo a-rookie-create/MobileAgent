@@ -62,7 +62,7 @@ class MultimodalLlmWrapper(abc.ABC):
 
 class GUIOwlWrapper(LlmWrapper, MultimodalLlmWrapper):
 
-    RETRY_WAITING_SECONDS = 20
+    RETRY_WAITING_SECONDS = 120
 
     def __init__(
             self,
@@ -81,7 +81,7 @@ class GUIOwlWrapper(LlmWrapper, MultimodalLlmWrapper):
         self.bot = OpenAI(
             api_key=api_key,
             base_url=base_url,
-            timeout=30,
+            timeout=60,
             http_client=httpx.Client(trust_env=False),
         )
 
